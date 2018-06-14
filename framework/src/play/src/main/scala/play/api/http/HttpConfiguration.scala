@@ -5,14 +5,14 @@
 package play.api.http
 
 import javax.inject.{ Inject, Provider, Singleton }
-
 import com.typesafe.config.ConfigMemorySize
-import org.apache.commons.codec.digest.DigestUtils
 import play.api._
+import play.api.libs.Codecs
 import play.api.mvc.Cookie.SameSite
 import play.core.cookie.encoding.{ ClientCookieDecoder, ClientCookieEncoder, ServerCookieDecoder, ServerCookieEncoder }
 
 import scala.concurrent.duration._
+import scala.util.{ Failure, Success }
 
 /**
  * HTTP related configuration of a Play application
@@ -259,7 +259,7 @@ object HttpConfiguration {
           // No application.conf?  Oh well, just use something hard coded.
           "she sells sea shells on the sea shore"
         )(_.toString)
-        val md5Secret = DigestUtils.md5Hex(secret)
+        val md5Secret = Codecs.md5(secret)
         logger.debug(s"Generated dev mode secret $md5Secret for app at ${appConfLocation.getOrElse("unknown location")}")
         md5Secret
       case Some(s) => s
@@ -273,7 +273,10 @@ object HttpConfiguration {
   /**
    * Don't use this - only exists for transition from global state
    */
-  private[play] def current = Play.privateMaybeApplication.fold(HttpConfiguration())(httpConfigurationCache)
+  private[play] def current: HttpConfiguration = Play.privateMaybeApplication match {
+    case Success(app) => httpConfigurationCache(app)
+    case Failure(_) => HttpConfiguration()
+  }
 
   /**
    * For calling from Java.
